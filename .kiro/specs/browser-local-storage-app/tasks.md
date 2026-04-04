@@ -120,6 +120,65 @@ Build a single-page client-side Transaction Tracker using HTML, CSS, and Vanilla
 - [x] 11. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
+- [x] 12. Implement custom categories
+  - [x] 12.1 Add `#custom-category-form`, `#custom-category-input`, `#category-error-msg` to `index.html`; update the category `<select>` to be dynamically populated
+    - _Requirements: 7.1, 7.5_
+
+  - [x] 12.2 Implement `loadCategories()`, `saveCategories(cats)`, `addCustomCategory(name)`, `renderCategoryOptions()`, and `getCategoryColor(name)` in `js/app.js`
+    - `loadCategories()` reads and JSON-parses the `"categories"` key; returns empty array on null or parse error
+    - `saveCategories(cats)` serializes custom categories array to JSON and writes to `localStorage`
+    - `addCustomCategory(name)` validates (non-empty, unique), appends to custom categories, saves, calls `renderCategoryOptions()`
+    - `renderCategoryOptions()` rebuilds `<option>` elements in the category `<select>` from built-in + custom categories
+    - `getCategoryColor(name)` returns fixed color for built-in categories; for custom categories, returns a deterministic color from `CUSTOM_PALETTE` based on the category's index in the full list
+    - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
+
+  - [ ]* 12.3 Write property test for Property 11: Custom category persists and appears in selector
+    - **Property 11: Custom category persists and appears in selector**
+    - **Validates: Requirements 7.2, 7.4, 7.5, 7.6**
+
+  - [ ]* 12.4 Write property test for Property 12: Custom category color is consistent
+    - **Property 12: Custom category color is consistent**
+    - **Validates: Requirements 7.7, 5.4**
+
+- [x] 13. Implement monthly summary view
+  - [x] 13.1 Add `#monthly-summary` section to `index.html`
+    - _Requirements: 8.1_
+
+  - [x] 13.2 Implement `renderMonthlySummary(txns)` in `js/app.js`
+    - Group transactions by calendar month+year, compute total spending and per-category breakdowns for each group
+    - Render groups into `#monthly-summary` in reverse chronological order (most recent first)
+    - Show empty-state message when array is empty
+    - Update `renderAll()` to call `renderMonthlySummary`
+    - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7_
+
+  - [ ]* 13.3 Write property test for Property 13: Monthly summary totals match transaction sums
+    - **Property 13: Monthly summary totals match transaction sums**
+    - **Validates: Requirements 8.1, 8.2, 8.3, 8.7**
+
+- [x] 14. Implement dark/light mode toggle
+  - [x] 14.1 Add `#theme-toggle` button to `index.html`
+    - _Requirements: 9.1_
+
+  - [x] 14.2 Implement `loadTheme()`, `saveTheme(theme)`, and `applyTheme(theme)` in `js/app.js`
+    - `loadTheme()` reads theme preference from `localStorage`; returns `"light"` if missing or invalid
+    - `saveTheme(theme)` writes theme string (`"light"` or `"dark"`) to `localStorage`
+    - `applyTheme(theme)` sets or removes `data-theme="dark"` on `<html>`
+    - Call `applyTheme(loadTheme())` before `renderAll()` on `DOMContentLoaded`
+    - Attach click listener on `#theme-toggle` to toggle between `"light"` and `"dark"`, calling `applyTheme` and `saveTheme`
+    - _Requirements: 9.2, 9.3, 9.4, 9.5_
+
+  - [x] 14.3 Add CSS custom properties for light and dark themes in `css/style.css`
+    - Define CSS variables for colors, backgrounds, and text under `:root` (light defaults) and `[data-theme="dark"]` selector
+    - Ensure sufficient contrast for all text and interactive elements in both themes
+    - _Requirements: 9.6, 9.7_
+
+  - [ ]* 14.4 Write property test for Property 14: Theme preference persists and applies on load
+    - **Property 14: Theme preference persists and applies on load**
+    - **Validates: Requirements 9.2, 9.3, 9.4, 9.5**
+
+- [x] 15. Final checkpoint — Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for a faster MVP

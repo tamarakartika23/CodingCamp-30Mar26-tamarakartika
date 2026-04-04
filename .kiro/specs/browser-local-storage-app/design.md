@@ -22,12 +22,31 @@ transaction-tracker/
 Data flow is unidirectional:
 
 ```
-User Action → Validate → Mutate localStorage → Re-render UI (list + balance + chart)
+User Action → Validate → Mutate localStorage → Re-render UI (list + balance + chart + monthly summary)
 ```
 
-On every add or delete, the app reads the full transaction array from `localStorage`, recomputes derived state (balance, category totals), and re-renders all three UI regions. There is no in-memory state separate from `localStorage` — the storage is the source of truth.
+On every add or delete, the app reads the full transaction array from `localStorage`, recomputes derived state (balance, category totals, monthly groups), and re-renders all UI regions. There is no in-memory state separate from `localStorage` — the storage is the source of truth.
 
 On page load, the app reads `localStorage` once and renders the initial state.
+
+**Theme data flow:**
+
+```
+Page Load → loadTheme() → applyTheme(theme) → render content
+Theme_Toggle click → applyTheme(newTheme) → saveTheme(newTheme)
+```
+
+Theme is applied before any content renders to avoid a flash of unstyled content. `applyTheme` adds or removes a `data-theme="dark"` attribute on `<html>` (or equivalent CSS class), which CSS variables respond to.
+
+**Custom categories data flow:**
+
+```
+Category form submit → validate (non-empty, unique) → addCustomCategory(name)
+  → saveCategories([...]) → renderCategoryOptions()
+Page Load → loadCategories() → renderCategoryOptions()
+```
+
+The built-in categories (`Food`, `Transport`, `Fun`) are defined as a constant. Custom categories are loaded from `localStorage` and merged with the built-ins at render time. `getCategoryColor` handles both built-in and custom names, assigning deterministic colors to custom ones via a rotating palette indexed by the category's position in the full list.
 
 ---
 
@@ -43,11 +62,17 @@ Defines the static shell:
 - `#chart-container` — wrapper for the Chart.js `<canvas>`
 - `<canvas id="spending-chart">` — Chart.js target
 
+- `#theme-toggle` — button that switches between Light and Dark themes
+- `#custom-category-form` — form for entering a new custom category name
+- `#custom-category-input` — text input for the new category name
+- `#category-error-msg` — inline validation error for the custom category form
+- `#monthly-summary` — section containing the monthly grouped spending breakdown
+
 Chart.js loaded via CDN `<script>` before `app.js`.
 
 ### css/style.css
 
-Handles layout (flexbox/grid), scrollable list (`max-height` + `overflow-y: auto`), form styling, error state visibility, and chart container sizing. No logic.
+Handles layout (flexbox/grid), scrollable list (`max-height` + `overflow-y: auto`), form styling, error state visibility, and chart container sizing. Also defines CSS custom properties (variables) for both light and dark themes, toggled via `[data-theme="dark"]` on `<html>`. No logic.
 
 ### js/app.js
 
@@ -65,6 +90,15 @@ All application logic. Key functions:
 | `renderChart(txns)` | Aggregate amounts by category, update or create Chart.js instance |
 | `validateForm(name, amount)` | Return error string or null |
 | `showError(msg)` / `clearError()` | Toggle `#error-msg` visibility |
+| `loadCategories()` | Read + parse custom categories JSON from `localStorage`; return array (empty array on miss/error) |
+| `saveCategories(cats)` | Serialize custom categories array to JSON and write to `localStorage` |
+| `addCustomCategory(name)` | Validate (non-empty, unique), append to custom categories, save, re-render category options |
+| `renderCategoryOptions()` | Rebuild `<option>` elements in the category `<select>` from built-in + custom categories |
+| `getCategoryColor(name)` | Return fixed color for built-in categories; for custom categories, return a deterministic color from a rotating palette based on the category's index in the full list |
+| `renderMonthlySummary(txns)` | Group transactions by calendar month+year, compute totals and per-category breakdowns, render into `#monthly-summary` in reverse chronological order; show empty-state message when array is empty |
+| `loadTheme()` | Read theme preference from `localStorage`; return `"light"` if missing or invalid |
+| `saveTheme(theme)` | Write theme string (`"light"` or `"dark"`) to `localStorage` |
+| `applyTheme(theme)` | Set or remove `data-theme="dark"` on `<html>`; called on load before render and on toggle |
 
 Chart instance is held in a module-level variable. On each `renderChart` call, if an instance exists it is destroyed and recreated to avoid Chart.js dataset accumulation issues.
 
@@ -88,15 +122,17 @@ Chart instance is held in a module-level variable. On each `renderChart` call, i
 | `id` | string | `Date.now().toString()` — unique enough for client-side use |
 | `name` | string | Non-empty after trim |
 | `amount` | number | Positive float |
-| `category` | string | One of `"Food"`, `"Transport"`, `"Fun"` |
+| `category` | string | One of `"Food"`, `"Transport"`, `"Fun"`, or any user-defined custom category name stored in `localStorage` |
 
-### localStorage key
+### localStorage keys
 
 ```
 "transactions"  →  JSON array of Transaction records
+"categories"    →  JSON array of strings (custom category names only; built-ins are constants)
+"theme"         →  "light" | "dark"
 ```
 
-### Category color map (constant in app.js)
+### Category color map (constant + dynamic in app.js)
 
 ```js
 const CATEGORY_COLORS = {
@@ -104,9 +140,14 @@ const CATEGORY_COLORS = {
   Transport: "#36A2EB",
   Fun:       "#FFCE56"
 };
+
+// Rotating palette for custom categories (assigned by index in full category list)
+const CUSTOM_PALETTE = [
+  "#4BC0C0", "#9966FF", "#FF9F40", "#C9CBCF", "#E7E9ED", "#71B37C"
+];
 ```
 
-Colors are fixed constants — same category always maps to the same color.
+Built-in categories have fixed colors. Custom categories are assigned a color from `CUSTOM_PALETTE` based on their index in the combined (built-in + custom) category list. Because the index is stable as long as the list order is preserved, the same name always maps to the same color across renders — a deterministic assignment without requiring a hash function.
 
 ---
 
@@ -174,6 +215,30 @@ Colors are fixed constants — same category always maps to the same color.
 
 **Validates: Requirements 6.1**
 
+### Property 11: Custom category persists and appears in selector
+
+*For any* non-empty string that is not already in the category list, calling `addCustomCategory(name)` should result in that name appearing in the array returned by `loadCategories()` and as a `<option>` element in the transaction category `<select>` after `renderCategoryOptions()` is called.
+
+**Validates: Requirements 7.2, 7.4, 7.5, 7.6**
+
+### Property 12: Custom category color is consistent
+
+*For any* category name (built-in or custom), calling `getCategoryColor(name)` multiple times — regardless of call order or intervening renders — should always return the same color value.
+
+**Validates: Requirements 7.7, 5.4**
+
+### Property 13: Monthly summary totals match transaction sums
+
+*For any* array of transactions spanning one or more calendar months, `renderMonthlySummary` should produce one group per distinct month+year, each group's total should equal the arithmetic sum of `amount` fields for transactions in that month, and the groups should appear in reverse chronological order (most recent month first).
+
+**Validates: Requirements 8.1, 8.2, 8.3, 8.7**
+
+### Property 14: Theme preference persists and applies on load
+
+*For any* valid theme value (`"light"` or `"dark"`), calling `saveTheme(theme)` followed by `loadTheme()` should return the same value, and calling `applyTheme(theme)` should set `data-theme="dark"` on `<html>` when theme is `"dark"` and remove it (or leave it absent) when theme is `"light"`.
+
+**Validates: Requirements 9.2, 9.3, 9.4, 9.5**
+
 ---
 
 ## Error Handling
@@ -186,6 +251,9 @@ Colors are fixed constants — same category always maps to the same color.
 | `localStorage` read returns null | Treat as empty array, render empty state |
 | `localStorage` read contains invalid JSON | Catch parse error, treat as empty array, optionally log to console |
 | Chart.js not loaded (CDN failure) | Chart section silently absent; list and balance still function |
+| Duplicate custom category name | Show inline error on `#category-error-msg`, block save |
+| Empty custom category name | Show inline error on `#category-error-msg`, block save |
+| Invalid theme value in `localStorage` (not `"light"` or `"dark"`) | `loadTheme()` falls back to `"light"`; invalid value is ignored |
 
 ---
 
@@ -199,6 +267,8 @@ Given the constraint of no test setup, the testing strategy is documentation-ori
 - Empty state message appears when list is empty (example for Req 2.3)
 - Empty state message appears on chart when no transactions (example for Req 5.3)
 - Warning message appears when localStorage is mocked to throw (example for Req 6.5)
+- Theme toggle button is present in the DOM (example for Req 9.1)
+- Monthly summary shows empty-state message when no transactions (example for Req 8.6)
 
 ### Property-based tests (if a test harness is added)
 
@@ -216,3 +286,7 @@ Recommended library: **fast-check** (JavaScript). Each property below maps to on
 | `Feature: browser-local-storage-app, Property 8: chart data matches category sums` | Generate transactions, assert chart dataset values equal per-category sums and colors match constants |
 | `Feature: browser-local-storage-app, Property 9: serialization round-trip` | Generate random valid records, serialize then deserialize, assert field equality |
 | `Feature: browser-local-storage-app, Property 10: load renders all stored` | Write transactions to localStorage, call load+render, assert all present |
+| `Feature: browser-local-storage-app, Property 11: custom category persists and appears in selector` | Generate random unique category names, call addCustomCategory, assert name in loadCategories() and in select options |
+| `Feature: browser-local-storage-app, Property 12: custom category color is consistent` | Generate random category names (built-in and custom), call getCategoryColor multiple times per name in varying orders, assert same color returned each time |
+| `Feature: browser-local-storage-app, Property 13: monthly summary totals match transaction sums` | Generate random transaction arrays spanning multiple months, call renderMonthlySummary, assert each group total equals sum of amounts for that month and groups are in reverse chronological order |
+| `Feature: browser-local-storage-app, Property 14: theme preference persists and applies on load` | Generate random valid theme values, call saveTheme then loadTheme, assert round-trip equality; call applyTheme and assert correct data-theme attribute on html element |

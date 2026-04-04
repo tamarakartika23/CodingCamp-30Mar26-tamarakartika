@@ -7,7 +7,17 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <h1>Transaction Tracker</h1>
+  <header>
+    <h1>Transaction Tracker</h1>
+    <label class="theme-switch" aria-label="Toggle dark mode">
+      <span class="theme-switch__label">☀</span>
+      <input type="checkbox" id="theme-toggle" role="switch" />
+      <span class="theme-switch__track">
+        <span class="theme-switch__thumb"></span>
+      </span>
+      <span class="theme-switch__label">☾</span>
+    </label>
+  </header>
 
   <section id="balance-section">
     <h2>Balance: $<span id="balance">0</span></h2>
@@ -25,14 +35,22 @@
       </div>
       <div>
         <label for="category">Category</label>
-        <select id="category" name="category">
-          <option value="Food">Food</option>
-          <option value="Transport">Transport</option>
-          <option value="Fun">Fun</option>
-        </select>
+        <select id="category" name="category"></select>
       </div>
       <p id="error-msg" aria-live="polite"></p>
       <button type="submit">Add Transaction</button>
+    </form>
+  </section>
+
+  <section id="custom-category-section">
+    <h2>Add Custom Category</h2>
+    <form id="custom-category-form">
+      <div>
+        <label for="custom-category-input">Category Name</label>
+        <input type="text" id="custom-category-input" name="custom-category-input" placeholder="e.g. Health" />
+      </div>
+      <p id="category-error-msg" aria-live="polite"></p>
+      <button type="submit">Add Category</button>
     </form>
   </section>
 
@@ -46,6 +64,10 @@
     <div id="chart-container">
       <canvas id="spending-chart"></canvas>
     </div>
+  </section>
+
+  <section id="monthly-summary">
+    <h2>Monthly Summary</h2>
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
